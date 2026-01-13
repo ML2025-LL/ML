@@ -1,9 +1,6 @@
-import { DateTime } from "luxon";
-import tzlookupNS from "tz-lookup";
-import { Solar } from "meeusjs";
-import { MoonPosition } from "meeusjs";
-
-const tzlookup = tzlookupNS?.default ?? tzlookupNS;
+const { DateTime } = require("luxon");
+const tzlookup = require("tz-lookup");
+const Astronomy = require("astronomy-engine");
 
 const SIGNS_FR = [
   "Bélier", "Taureau", "Gémeaux", "Cancer", "Lion", "Vierge",
@@ -20,51 +17,11 @@ function norm360(x) {
   return x < 0 ? x + 360 : x;
 }
 
-// Julian Day from JS Date (UTC)
-function julianDay(dateUtc) {
-  const y = dateUtc.getUTCFullYear();
-  let m = dateUtc.getUTCMonth() + 1;
-  const D =
-    dateUtc.getUTCDate() +
-    (dateUtc.getUTCHours() +
-      (dateUtc.getUTCMinutes() +
-        (dateUtc.getUTCSeconds() + dateUtc.getUTCMilliseconds() / 1000) / 60) /
-        60) /
-      24;
-
-  let Y = y;
-  if (m <= 2) {
-    Y -= 1;
-    m += 12;
-  }
-  const A = Math.floor(Y / 100);
-  const B = 2 - A + Math.floor(A / 4);
-
-  const JD =
-    Math.floor(365.25 * (Y + 4716)) +
-    Math.floor(30.6001 * (m + 1)) +
-    D +
-    B -
-    1524.5;
-  return JD;
-}
-
-// GMST in degrees (approx, good enough for ascendant)
-function gmstDeg(dateUtc) {
-  const JD = julianDay(dateUtc);
-  const T = (JD - 2451545.0) / 36525.0;
-  const GMST =
-    280.46061837 +
-    360.98564736629 * (JD - 2451545.0) +
-    0.000387933 * T * T -
-    (T * T * T) / 38710000.0;
-  return norm360(GMST);
-}
-
-// Mean obliquity (degrees)
+// Mean obliquity (degrees) – simple & stable
 function meanObliquityDeg(dateUtc) {
-  const JD = julianDay(dateUtc);
-  const T = (JD - 2451545.0) / 36525.0;
+  const t = Astronomy.MakeTime(dateUtc);
+  const jd = t.ut;
+  const T = (jd - 2451545.0) / 36525.0;
   const epsArcsec =
     84381.448
     - 46.8150 * T
@@ -73,7 +30,14 @@ function meanObliquityDeg(dateUtc) {
   return epsArcsec / 3600.0;
 }
 
-// Ascendant ecliptic longitude (degrees)
+// GMST in degrees using Astronomy-Engine sidereal time
+function gmstDeg(dateUtc) {
+  const t = Astronomy.MakeTime(dateUtc);
+  const stHours = Astronomy.SiderealTime(t); // hours
+  return norm360(stHours * 15);
+}
+
+// Ascendant longitude (degrees)
 function ascendantLongitudeDeg(dateUtc, latDeg, lonDeg) {
   const theta = gmstDeg(dateUtc) + lonDeg; // east positive
   const eps = meanObliquityDeg(dateUtc);
@@ -88,16 +52,23 @@ function ascendantLongitudeDeg(dateUtc, latDeg, lonDeg) {
   return norm360((lam * 180) / Math.PI);
 }
 
-export default function handler(req, res) {
+module.exports = (req, res) => {
   try {
-    // GET = healthcheck (jamais crash)
+    // Healthcheck GET
     if (req.method === "GET") {
       return res.status(200).json({ ok: true, hint: "POST {date,time,lat,lon}" });
     }
 
-    if (req.method !== "POST") return res.status(405).json({ error: "POST only" });
+    if (req.method !== "POST") {
+      return res.status(405).json({ error: "POST only" });
+    }
 
-    const { date, time, lat, lon } = req.body || {};
+    const body = req.body || {};
+    const date = body.date;
+    const time = body.time; // "HH:MM" ou null
+    const lat = body.lat;
+    const lon = body.lon;
+
     if (!date || typeof lat !== "number" || typeof lon !== "number") {
       return res.status(400).json({ error: "Missing date/lat/lon" });
     }
@@ -111,24 +82,27 @@ export default function handler(req, res) {
       `${date}T${String(hh).padStart(2, "0")}:${String(mm).padStart(2, "0")}`,
       { zone: tz }
     );
-    if (!local.isValid) return res.status(400).json({ error: "Invalid date/time" });
+
+    if (!local.isValid) {
+      return res.status(400).json({ error: "Invalid date/time" });
+    }
 
     const utc = local.toUTC().toJSDate();
-    const JD = julianDay(utc);
+    const t = Astronomy.MakeTime(utc);
 
-    // Sun ecliptic longitude (degrees)
-    const sunLon = Solar.apparentLongitude(JD); // degrees
-    const sunSign = signFromLon(sunLon);
+    // Sun longitude
+    const sunVec = Astronomy.GeoVector("Sun", t, true);
+    const sunEcl = Astronomy.Ecliptic(sunVec);
+    const sunSign = signFromLon(sunEcl.elon);
 
     let moonSign = null;
     let ascSign = null;
 
+    // Only compute Moon + Asc if time provided
     if (hasTime) {
-      // Moon ecliptic longitude (degrees)
-      const moon = MoonPosition.position(JD);
-      // meeusjs returns object with .lambda (ecliptic longitude)
-      const moonLon = moon.lambda;
-      moonSign = signFromLon(moonLon);
+      const moonVec = Astronomy.GeoVector("Moon", t, true);
+      const moonEcl = Astronomy.Ecliptic(moonVec);
+      moonSign = signFromLon(moonEcl.elon);
 
       const ascLon = ascendantLongitudeDeg(utc, lat, lon);
       ascSign = signFromLon(ascLon);
@@ -136,6 +110,6 @@ export default function handler(req, res) {
 
     return res.status(200).json({ tz, sunSign, moonSign, ascSign });
   } catch (e) {
-    return res.status(500).json({ error: String(e?.message || e) });
+    return res.status(500).json({ error: String(e && e.message ? e.message : e) });
   }
-}
+};
