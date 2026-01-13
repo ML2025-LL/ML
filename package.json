@@ -3,8 +3,8 @@
   "private": true,
   "type": "module",
   "dependencies": {
-    "astronomy-engine": "^2.1.19",
     "luxon": "^3.5.0",
-    "tz-lookup": "^6.1.25"
+    "tz-lookup": "^6.1.25",
+    "meeusjs": "^0.3.6"
   }
 }
