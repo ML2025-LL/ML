@@ -63,6 +63,11 @@ async function geocodePlace(place) {
 }
 
 module.exports = async (req, res) => {
+    setCors(res);
+  if (req.method === "OPTIONS") {
+    return res.status(200).end();
+  }
+
   try {
     if (req.method === "GET") {
       return res.status(200).json({ ok: true, hint: "POST {date,time,place} ou {date,time,lat,lon}" });
@@ -126,4 +131,5 @@ module.exports = async (req, res) => {
     return res.status(500).json({ error: String(e?.message || e) });
   }
 };
+
 
