@@ -3,8 +3,8 @@
   "private": true,
   "type": "module",
   "dependencies": {
+    "astronomy-engine": "^2.1.19",
     "luxon": "^3.5.0",
-    "swisseph": "^0.6.0",
     "tz-lookup": "^6.1.25"
   }
 }
