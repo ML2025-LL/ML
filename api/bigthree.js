@@ -6,6 +6,11 @@ const SIGNS_FR = [
   "Bélier", "Taureau", "Gémeaux", "Cancer", "Lion", "Vierge",
   "Balance", "Scorpion", "Sagittaire", "Capricorne", "Verseau", "Poissons"
 ];
+function setCors(res) {
+  res.setHeader("Access-Control-Allow-Origin", "https://www.monologueworld.com");
+  res.setHeader("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+}
 
 function signFromLon(lonDeg) {
   const lon = ((lonDeg % 360) + 360) % 360;
@@ -121,3 +126,4 @@ module.exports = async (req, res) => {
     return res.status(500).json({ error: String(e?.message || e) });
   }
 };
+
