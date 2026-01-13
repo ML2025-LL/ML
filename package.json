@@ -1,0 +1,10 @@
+{
+  "name": "monologue-bigthree-api",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "luxon": "^3.5.0",
+    "swisseph": "^0.6.0",
+    "tz-lookup": "^6.1.25"
+  }
+}
