@@ -1,10 +1,9 @@
 {
   "name": "monologue-bigthree-api",
   "private": true,
-  "type": "module",
   "dependencies": {
     "luxon": "^3.5.0",
     "tz-lookup": "^6.1.25",
-    "meeusjs": "latest"
+    "astronomy-engine": "^2.1.19"
   }
 }
