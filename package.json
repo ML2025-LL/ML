@@ -5,6 +5,6 @@
   "dependencies": {
     "luxon": "^3.5.0",
     "tz-lookup": "^6.1.25",
-    "meeusjs": "^0.3.6"
+    "meeusjs": "latest"
   }
 }
