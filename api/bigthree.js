@@ -31,18 +31,28 @@ function gmstDeg(dateUtc) {
   return norm360(stHours * 15);
 }
 function ascendantLongitudeDeg(dateUtc, latDeg, lonDeg) {
-  const theta = gmstDeg(dateUtc) + lonDeg;
-  const eps = meanObliquityDeg(dateUtc);
+  const rad = Math.PI / 180;
 
-  const thetaRad = (theta * Math.PI) / 180;
-  const epsRad = (eps * Math.PI) / 180;
-  const latRad = (latDeg * Math.PI) / 180;
+  // LST (Local Sidereal Time) en degrés
+  const lstDeg = norm360(gmstDeg(dateUtc) + lonDeg);
 
-  const y = Math.sin(thetaRad) * Math.cos(epsRad) - Math.tan(latRad) * Math.sin(epsRad);
-  const x = Math.cos(thetaRad);
-  const lam = Math.atan2(y, x);
-  return norm360((lam * 180) / Math.PI);
+  // Obliquité de l’écliptique
+  const epsDeg = meanObliquityDeg(dateUtc);
+
+  const L = lstDeg * rad;
+  const φ = latDeg * rad;
+  const ε = epsDeg * rad;
+
+  // Formule robuste (quadrants OK)
+  // λAsc = atan2( cos(LST), -(sin(LST)*cosε + tanφ*sinε) )
+  const λ = Math.atan2(
+    Math.cos(L),
+    -(Math.sin(L) * Math.cos(ε) + Math.tan(φ) * Math.sin(ε))
+  );
+
+  return norm360((λ * 180) / Math.PI);
 }
+
 
 // Géocodage simple via Nominatim (texte -> lat/lon)
 async function geocodePlace(place) {
@@ -131,5 +141,6 @@ module.exports = async (req, res) => {
     return res.status(500).json({ error: String(e?.message || e) });
   }
 };
+
 
 
